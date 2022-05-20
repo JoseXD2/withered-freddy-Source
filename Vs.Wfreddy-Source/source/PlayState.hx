@@ -1310,7 +1310,9 @@ class PlayState extends MusicBeatState
 		// MUSICBOXBAR INITIAL VALUE
 		puppetmusic = 10;
 		
-		
+		#if android
+	        addAndroidControls();
+	#end
 		
 
 		// if (SONG.song == 'South')
@@ -2069,7 +2071,9 @@ class PlayState extends MusicBeatState
 	#end
 
 	function startCountdown():Void
-	{
+	{       #if android
+	        androidc.visible = true;
+	        #end
 		inCutscene = false;
 
 		generateStaticArrows(0);
@@ -4646,9 +4650,10 @@ class PlayState extends MusicBeatState
 
 	function endSong():Void
 	{
-		if (!loadRep)
-			rep.SaveReplay(saveNotes);
-		else
+		#if android
+	        androidc.visible = true;
+	        #end
+			
 		{
 			FlxG.save.data.botplay = false;
 			FlxG.save.data.scrollSpeed = 1;
@@ -4712,9 +4717,10 @@ class PlayState extends MusicBeatState
 					StoryMenuState.weekUnlocked[Std.int(Math.min(storyWeek + 1, StoryMenuState.weekUnlocked.length - 1))] = true;
 
 					if (SONG.validScore)
-					{
+					{       #if newgrounds
 						NGio.unlockMedal(60961);
 						Highscore.saveWeekScore(storyWeek, campaignScore, storyDifficulty);
+					        #end
 					}
 
 					//FlxG.save.data.weekUnlocked = StoryMenuState.weekUnlocked;
