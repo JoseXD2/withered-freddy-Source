@@ -1,25 +1,30 @@
 package;
 
-import flixel.util.FlxColor;
+import flixel.FlxSprite;
 import flixel.FlxG;
 import flixel.FlxState;
+#if android
+import extension.videoview.VideoView;
+import android.AndroidTools;
+#elseif windows
+import vlc.VlcBitmap;
 import openfl.events.Event;
+#elseif html5
 import openfl.media.Video;
 import openfl.net.NetConnection;
 import openfl.net.NetStream;
-import vlc.VlcBitmap;
-import Controls.Control;
-import flixel.util.FlxTimer;
-import flixel.FlxSprite;
+#end
 
 // THIS IS FOR TESTING
 // DONT STEAL MY CODE >:(
-
 class MP4Handler
 {
+	#if html5
 	public static var video:Video;
 	public static var netStream:NetStream;
-	public static var finishCallback:FlxState;
+	#end
+
+	public var finishCallback:Void->Void;
 	public var sprite:FlxSprite;
 	#if desktop
 	public static var vlcBitmap:VlcBitmap;
@@ -27,7 +32,6 @@ class MP4Handler
 
 	public function new()
 	{
-
 		FlxG.autoPause = false;
 
 		if (FlxG.sound.music != null)
@@ -36,8 +40,10 @@ class MP4Handler
 		}
 	}
 
-	public function playMP4(path:String, callback:FlxState, ?outputTo:FlxSprite = null, ?repeat:Bool = false, ?isWindow:Bool = false, ?isFullscreen:Bool = false):Void
+	public function playMP4(path:String, voidCallback:Void->Void, ?outputTo:FlxSprite = null, ?repeat:Bool = false, ?isWindow:Bool = false, ?isFullscreen:Bool = false):Void
 	{
+		finishCallback = voidCallback;
+
 		#if html5
 		FlxG.autoPause = false;
 
@@ -46,7 +52,8 @@ class MP4Handler
 			FlxG.sound.music.stop();
 		}
 
-		finishCallback = callback;
+		if (callback != null)
+			finishCallback = callback;
 
 		video = new Video();
 		video.x = 0;
@@ -63,8 +70,17 @@ class MP4Handler
 		nc.addEventListener("netStatus", netConnection_onNetStatus);
 
 		netStream.play(path);
-		#else
-		finishCallback = callback;
+
+		#elseif android
+
+		VideoView.playVideo('file:///android_asset/' + path);
+		VideoView.onCompletion = function(){
+			if (finishCallback != null){
+				finishCallback();
+			}
+		}
+		
+		#elseif windows
 
 		vlcBitmap = new VlcBitmap();
 		vlcBitmap.set_height(FlxG.stage.stageHeight);
@@ -89,18 +105,17 @@ class MP4Handler
 
 		FlxG.addChildBelowMouse(vlcBitmap);
 		vlcBitmap.play(checkFile(path));
-		
 		if (outputTo != null)
 		{
 			// lol this is bad kek
 			vlcBitmap.alpha = 0;
-	
+
 			sprite = outputTo;
 		}
 		#end
 	}
 
-	#if desktop
+	#if windows
 	function checkFile(fileName:String):String
 	{
 		var pDir = "";
@@ -127,54 +142,38 @@ class MP4Handler
 	{
 		vlcBitmap.stop();
 
-		// Clean player, just in case! Actually no.
+		// Clean player, just in case!
+		vlcBitmap.dispose();
 
-		FlxG.camera.fade(FlxColor.BLACK, 0, false);
-
+		if (FlxG.game.contains(vlcBitmap))
+		{
+			FlxG.game.removeChild(vlcBitmap);
+		}
 
 		trace("Big, Big Chungus, Big Chungus!");
 
-		new FlxTimer().start(0.3, function (tmr:FlxTimer)
+		if (finishCallback != null)
 		{
-			if (finishCallback != null)
-			{
-				LoadingState.loadAndSwitchState(finishCallback);
-			}
-			vlcBitmap.dispose();
-
-			if (FlxG.game.contains(vlcBitmap))
-			{
-				FlxG.game.removeChild(vlcBitmap);
-			}	
-		});
-		
-
+			finishCallback();
+		}
 	}
 
 	function onVLCError()
 	{
 		if (finishCallback != null)
 		{
-			LoadingState.loadAndSwitchState(finishCallback);
+			finishCallback();
 		}
 	}
 
 	function update(e:Event)
 	{
-		if (FlxG.keys.justPressed.ENTER || FlxG.keys.justPressed.SPACE)
-		{
-			if (vlcBitmap.isPlaying)
-			{
-				onVLCComplete();
-			}
-		}
-		vlcBitmap.volume = FlxG.sound.volume + 0.3; // shitty volume fix. then make it louder.
-		if (FlxG.sound.volume <= 0.1) vlcBitmap.volume = 0;
+		vlcBitmap.volume = FlxG.sound.volume; // shitty volume fix
 	}
 	#end
 
 	/////////////////////////////////////////////////////////////////////////////////////
-
+	#if html5
 	function client_onMetaData(path)
 	{
 		video.attachNetStream(netStream);
@@ -190,24 +189,25 @@ class MP4Handler
 			finishVideo();
 		}
 	}
+	#end
+
 
 	function finishVideo()
 	{
+		#if html5
 		netStream.dispose();
 
 		if (FlxG.game.contains(video))
 		{
 			FlxG.game.removeChild(video);
 		}
+		#end
 
 		if (finishCallback != null)
 		{
-			LoadingState.loadAndSwitchState(finishCallback);
+			finishCallback();
 		}
-		else
-			LoadingState.loadAndSwitchState(new AnimatronicMenu());
 	}
-
 	// old html5 player
 	/*
 		var nc:NetConnection = new NetConnection();
